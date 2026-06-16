@@ -70,3 +70,65 @@ const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log("Server running on", PORT);
 });
+
+app.get("/", (req, res) => {
+  res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+  <title>STT Dashboard</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+</head>
+<body style="font-family: Arial; max-width: 600px; margin: 40px auto;">
+
+  <h2>🎙 STT Dashboard</h2>
+
+  <input type="file" id="audio" accept="audio/*" />
+  <button onclick="upload()">Transcribe</button>
+
+  <p id="status"></p>
+  <pre id="result" style="white-space: pre-wrap;"></pre>
+
+  <script>
+    async function upload() {
+      const file = document.getElementById("audio").files[0];
+      if (!file) {
+        alert("Pilih file dulu");
+        return;
+      }
+
+      const status = document.getElementById("status");
+      const result = document.getElementById("result");
+
+      status.innerText = "Uploading...";
+
+      const formData = new FormData();
+      formData.append("audio", file);
+
+      try {
+        const res = await fetch("/api/transcribe", {
+          method: "POST",
+          body: formData
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          status.innerText = "Done";
+          result.innerText = data.text;
+        } else {
+          status.innerText = "Error";
+          result.innerText = data.error;
+        }
+
+      } catch (err) {
+        status.innerText = "Request failed";
+        result.innerText = err.message;
+      }
+    }
+  </script>
+
+</body>
+</html>
+  `);
+});
