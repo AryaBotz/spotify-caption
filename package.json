@@ -1,5 +1,5 @@
 {
-  "name": "spotify-caption",
+  "name": "stt-backend",
   "version": "1.0.0",
   "type": "module",
   "main": "server.js",
@@ -11,7 +11,6 @@
     "multer": "^1.4.5-lts.1",
     "dotenv": "^16.4.5",
     "groq-sdk": "^0.3.0",
-    "fluent-ffmpeg": "^2.1.3",
-    "ffmpeg-static": "^5.2.0"
+    "cors": "^2.8.5"
   }
 }
