@@ -1,6 +1,7 @@
 import express from "express";
 import multer from "multer";
 import fs from "fs";
+import path from "path";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
 
@@ -14,8 +15,18 @@ const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
 
+// Simpan file dengan ekstensi aslinya
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, "uploads/");
+  },
+  filename: (req, file, cb) => {
+    cb(null, Date.now() + path.extname(file.originalname));
+  }
+});
+
 const upload = multer({
-  dest: "uploads/"
+  storage
 });
 
 app.get("/api/status", (req, res) => {
@@ -32,6 +43,9 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
         error: "No audio uploaded"
       });
     }
+
+    console.log("FILE INFO:");
+    console.log(req.file);
 
     const transcription =
       await groq.audio.transcriptions.create({
