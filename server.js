@@ -4,16 +4,31 @@ import fs from "fs";
 import path from "path";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
+
 import ffmpeg from "fluent-ffmpeg";
 import ffmpegPath from "ffmpeg-static";
 
 dotenv.config();
 
+// =======================
+// INIT FFmpeg PATH
+// =======================
 ffmpeg.setFfmpegPath(ffmpegPath);
 
+// =======================
+// INIT APP
+// =======================
 const app = express();
 app.use(express.static("public"));
 
+// =======================
+// ENSURE FOLDERS
+// =======================
+if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
+
+// =======================
+// GROQ INIT
+// =======================
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
@@ -33,7 +48,7 @@ const storage = multer.diskStorage({
 const upload = multer({ storage });
 
 // =======================
-// BASIC STATUS
+// STATUS
 // =======================
 app.get("/api/status", (req, res) => {
   res.json({ status: "online" });
@@ -48,8 +63,7 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
       return res.status(400).json({ error: "No audio uploaded" });
     }
 
-    console.log("FILE INFO:");
-    console.log(req.file);
+    console.log("FILE INFO:", req.file);
 
     const transcription = await groq.audio.transcriptions.create({
       file: fs.createReadStream(req.file.path),
@@ -64,7 +78,8 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("TRANSCRIBE ERROR:", error);
+
     res.status(500).json({
       success: false,
       error: error.message
@@ -73,7 +88,7 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
 });
 
 // =======================
-// STREAM SIMULATE (CHUNKING)
+// STREAM SIMULATION (CHUNKED)
 // =======================
 app.post("/api/stream-simulate", upload.single("audio"), async (req, res) => {
   try {
@@ -82,17 +97,17 @@ app.post("/api/stream-simulate", upload.single("audio"), async (req, res) => {
     }
 
     const inputPath = req.file.path;
-    const chunkDir = "chunks_" + Date.now();
+    const chunkDir = `chunks_${Date.now()}`;
 
     fs.mkdirSync(chunkDir);
 
-    // split audio into 5-second chunks
+    // split audio into chunks
     await new Promise((resolve, reject) => {
       ffmpeg(inputPath)
         .outputOptions([
           "-f segment",
           "-segment_time 5",
-          "-c copy"
+          "-reset_timestamps 1"
         ])
         .output(`${chunkDir}/chunk_%03d.mp3`)
         .on("end", resolve)
@@ -105,7 +120,7 @@ app.post("/api/stream-simulate", upload.single("audio"), async (req, res) => {
     let results = [];
 
     for (const file of files) {
-      const chunkPath = `${chunkDir}/${file}`;
+      const chunkPath = path.join(chunkDir, file);
 
       console.log("Processing chunk:", file);
 
@@ -141,7 +156,8 @@ app.post("/api/stream-simulate", upload.single("audio"), async (req, res) => {
     });
 
   } catch (error) {
-    console.error(error);
+    console.error("STREAM ERROR:", error);
+
     res.status(500).json({
       success: false,
       error: error.message
