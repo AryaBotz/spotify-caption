@@ -1,93 +1,19 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Spotify Caption MVP</title>
-
-<style>
-body{
-font-family:Arial,sans-serif;
-max-width:700px;
-margin:auto;
-padding:20px;
-}
-
-button{
-padding:10px 20px;
-margin-top:10px;
-}
-
-#result{
-margin-top:20px;
-padding:15px;
-border:1px solid #ccc;
-white-space:pre-wrap;
-}
-</style>
+  <title>STT Upload Test</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
 </head>
-
 <body>
 
-<h2>Spotify Caption MVP</h2>
+  <h2>Speech to Text Test</h2>
 
-<input type="file" id="audioFile">
+  <input type="file" id="audio" accept="audio/*" />
+  <button onclick="upload()">Upload & Transcribe</button>
 
-<br>
+  <p id="status"></p>
+  <pre id="result"></pre>
 
-<button onclick="uploadAudio()">
-Transcribe
-</button>
-
-<div id="result">
-Waiting...
-</div>
-
-<script>
-
-async function uploadAudio(){
-
-const file =
-document.getElementById("audioFile").files[0];
-
-if(!file){
-alert("Select audio first");
-return;
-}
-
-const formData =
-new FormData();
-
-formData.append("audio",file);
-
-document.getElementById("result").innerText =
-"Processing...";
-
-try{
-
-const response =
-await fetch("/api/transcribe",{
-method:"POST",
-body:formData
-});
-
-const data =
-await response.json();
-
-document.getElementById("result").innerText =
-data.text || JSON.stringify(data,null,2);
-
-}
-catch(error){
-
-document.getElementById("result").innerText =
-error.message;
-
-}
-
-}
-
-</script>
-
+  <script src="script.js"></script>
 </body>
 </html>
