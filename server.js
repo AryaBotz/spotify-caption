@@ -5,40 +5,20 @@ import path from "path";
 import dotenv from "dotenv";
 import Groq from "groq-sdk";
 
-import ffmpeg from "fluent-ffmpeg";
-import ffmpegPath from "ffmpeg-static";
-
 dotenv.config();
 
-// =======================
-// INIT FFmpeg PATH
-// =======================
-ffmpeg.setFfmpegPath(ffmpegPath);
-
-// =======================
-// INIT APP
-// =======================
 const app = express();
 app.use(express.static("public"));
 
-// =======================
-// ENSURE FOLDERS
-// =======================
-if (!fs.existsSync("uploads")) fs.mkdirSync("uploads");
-
-// =======================
-// GROQ INIT
-// =======================
 const groq = new Groq({
   apiKey: process.env.GROQ_API_KEY
 });
 
-// =======================
-// MULTER CONFIG
-// =======================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, "uploads/");
+    const dir = "uploads";
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir);
+    cb(null, dir);
   },
   filename: (req, file, cb) => {
     cb(null, Date.now() + path.extname(file.originalname));
@@ -47,23 +27,15 @@ const storage = multer.diskStorage({
 
 const upload = multer({ storage });
 
-// =======================
-// STATUS
-// =======================
 app.get("/api/status", (req, res) => {
   res.json({ status: "online" });
 });
 
-// =======================
-// SINGLE TRANSCRIBE
-// =======================
 app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No audio uploaded" });
     }
-
-    console.log("FILE INFO:", req.file);
 
     const transcription = await groq.audio.transcriptions.create({
       file: fs.createReadStream(req.file.path),
@@ -78,7 +50,7 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
     });
 
   } catch (error) {
-    console.error("TRANSCRIBE ERROR:", error);
+    console.error(error);
 
     res.status(500).json({
       success: false,
@@ -87,76 +59,32 @@ app.post("/api/transcribe", upload.single("audio"), async (req, res) => {
   }
 });
 
-// =======================
-// STREAM SIMULATION (CHUNKED)
-// =======================
 app.post("/api/stream-simulate", upload.single("audio"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: "No audio uploaded" });
     }
 
-    const inputPath = req.file.path;
-    const chunkDir = `chunks_${Date.now()}`;
-
-    fs.mkdirSync(chunkDir);
-
-    // split audio into chunks
-    await new Promise((resolve, reject) => {
-      ffmpeg(inputPath)
-        .outputOptions([
-          "-f segment",
-          "-segment_time 5",
-          "-reset_timestamps 1"
-        ])
-        .output(`${chunkDir}/chunk_%03d.mp3`)
-        .on("end", resolve)
-        .on("error", reject)
-        .run();
+    // versi SIMPLIFIED dulu (tanpa ffmpeg biar stabil di deploy)
+    const transcription = await groq.audio.transcriptions.create({
+      file: fs.createReadStream(req.file.path),
+      model: "whisper-large-v3"
     });
 
-    const files = fs.readdirSync(chunkDir).sort();
-
-    let results = [];
-
-    for (const file of files) {
-      const chunkPath = path.join(chunkDir, file);
-
-      console.log("Processing chunk:", file);
-
-      try {
-        const transcription = await groq.audio.transcriptions.create({
-          file: fs.createReadStream(chunkPath),
-          model: "whisper-large-v3"
-        });
-
-        results.push({
-          chunk: file,
-          text: transcription.text
-        });
-
-      } catch (err) {
-        results.push({
-          chunk: file,
-          error: err.message
-        });
-      }
-
-      // simulate realtime delay
-      await new Promise(r => setTimeout(r, 500));
-    }
-
-    // cleanup
-    fs.unlinkSync(inputPath);
-    fs.rmSync(chunkDir, { recursive: true, force: true });
+    fs.unlinkSync(req.file.path);
 
     res.json({
       success: true,
-      chunks: results
+      stream: [
+        {
+          chunk: "full_audio",
+          text: transcription.text
+        }
+      ]
     });
 
   } catch (error) {
-    console.error("STREAM ERROR:", error);
+    console.error(error);
 
     res.status(500).json({
       success: false,
@@ -165,9 +93,6 @@ app.post("/api/stream-simulate", upload.single("audio"), async (req, res) => {
   }
 });
 
-// =======================
-// START SERVER
-// =======================
 const PORT = process.env.PORT || 3000;
 
 app.listen(PORT, () => {
